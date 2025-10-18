@@ -1,41 +1,66 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, InternalServerErrorException, Logger, Param, Post, Put, Query } from '@nestjs/common';
 import { FlightService } from './flight.service';
 
-import type{ flightUpdateDto } from './flightUpdate.dto';
-import type{ cheapFlightDto } from './cheapFlight.dto';
-import type{ flightSearchDto } from './fightSearch.dto';
+import type { flightUpdateDto } from './flightUpdate.dto';
+import type { cheapFlightDto } from './cheapFlight.dto';
+import type { flightSearchDto } from './fightSearch.dto';
 
 
 @Controller('flight')
 export class FlightController {
+  private readonly logger = new Logger(FlightController.name);
   constructor(private readonly flightService: FlightService) { }
 
   @Get()
-  getAllFlights(@Query() param: flightSearchDto) {
-    if (Object.keys(param).length) {
-      return this.flightService.flightSearch(param);
-    } else {
-      return this.flightService.getAllFlights();
+  async getAllFlights(@Query() param: flightSearchDto) {
+    this.logger.log(`GET /flight called with query: ${JSON.stringify(param)}`);
+    try {
+      if (Object.keys(param).length) {
+        const flights = await this.flightService.flightSearch(param);
+        this.logger.debug(`Found ${flights.length} flights matching query`);
+        return flights;
+      } else {
+        const flights = await this.flightService.getAllFlights();
+        this.logger.debug(`Returning all ${flights.length} flights`);
+        return flights;
+      }
+    } catch (error) {
+      this.logger.error('Error fetching flights', error.stack);
+      throw new InternalServerErrorException('Failed to fetch flights');
     }
 
   }
 
   @Get('/getCheapFlight')
-  getCheapFlightTime(@Query() param: cheapFlightDto) {
-    if (Object.keys(param).length) {
-      return this.flightService.searchCheapestFlightArrival(param);
-    } else {
-      return null;
+  async getCheapFlightTime(@Query() param: cheapFlightDto) {
+    this.logger.log(`GET /flight/getCheapFlight called with query: ${JSON.stringify(param)}`);
+    try {
+      if (Object.keys(param).length) {
+        return this.flightService.searchCheapestFlightArrival(param);
+      } else {
+        return null;
+      }
+    } catch (error) {
+      this.logger.error('Error fetching cheapest flight', error.stack);
+      throw new InternalServerErrorException('Failed to fetch cheapest flight');
     }
 
   }
-    @Get('/:id')
-  getFlightById(@Param('id') id: string) {
-    return this.flightService.getFlightById(id);
+  @Get('/:id')
+  async getFlightById(@Param('id') id: string) {
+    this.logger.log(`GET /flight/${id} called`);
+    try {
+      const flight = await this.flightService.getFlightById(id);
+      this.logger.debug(`Found flight: ${JSON.stringify(flight)}`);
+      return flight;
+    } catch (error) {
+      this.logger.error(`Error fetching flight with id ${id}`, error.stack);
+      throw new InternalServerErrorException(`Failed to fetch flight with id ${id}`);
+    }
   }
 
   @Post()
-  createFlight(
+  async createFlight(
     @Body('name') name: string,
     @Body('startDestination') startDestination: string,
     @Body('endDestination') endDestination: string,
@@ -44,28 +69,59 @@ export class FlightController {
     @Body('arriveTime') arriveTime: string,
     @Body('price') price: number,
   ) {
+    this.logger.log(`POST /flight called to create flight ${name} from ${startDestination} -> ${endDestination}`);
 
-    const arrive=new Date(arriveTime);
-    const depart=new Date(departTime)
-    return this.flightService.createFlight(name, startDestination, endDestination, locationType, depart, arrive, price)
+    try {
+      const depart = new Date(departTime);
+      const arrive = new Date(arriveTime);
+      const flight = await this.flightService.createFlight(
+        name,
+        startDestination,
+        endDestination,
+        locationType,
+        depart,
+        arrive,
+        price,
+      );
+      this.logger.debug(`Flight created with id: ${flight.id}`);
+      return flight;
+    } catch (error) {
+      this.logger.error('Error creating flight', error.stack);
+      throw new InternalServerErrorException('Failed to create flight');
+    }
   }
 
 
 
   @Put('/:id')
-  updateFlight(
+  async updateFlight(
     @Param() id: string,
     @Body() updatedData: flightUpdateDto
   ) {
-    const updatedFlight = this.flightService.updateFlight(id, updatedData);
-    return updatedFlight
+    this.logger.log(`PUT /flight/${id} called`);
+    try {
+      const updatedFlight = await this.flightService.updateFlight(id, updatedData);
+      this.logger.debug(`Flight updated: ${JSON.stringify(updatedFlight)}`);
+      return updatedFlight;
+    } catch (error) {
+      this.logger.error(`Error updating flight with id ${id}`, error.stack);
+      throw new InternalServerErrorException(`Failed to update flight with id ${id}`);
+    }
   }
 
   @Delete('/:id')
-  deleteFlight(
+  async deleteFlight(
     @Param() id: string
   ) {
-    this.flightService.deleteFlight(id)
+    this.logger.log(`DELETE /flight/${id} called`);
+    try {
+      await this.flightService.deleteFlight(id);
+      this.logger.log(`Flight with id ${id} deleted successfully`);
+      return { message: `Flight ${id} deleted` };
+    } catch (error) {
+      this.logger.error(`Error deleting flight with id ${id}`, error.stack);
+      throw new InternalServerErrorException(`Failed to delete flight with id ${id}`);
+    }
   }
 
 }
