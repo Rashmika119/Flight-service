@@ -18,8 +18,13 @@ export class FlightService {
   ) { }
 
   async getAllFlights(): Promise<Flight[]> {
-    this.logger.debug('Fetching all flights');
-    return await this.flightRepo.find();
+    try {
+      this.logger.debug('Fetching all flights');
+      return await this.flightRepo.find();
+    } catch (error) {
+      this.logger.error('Error fetching flights', error.stack);
+      throw new HttpException('Failed to fetch flights', 500);
+    }
   }
 
   async createFlight(
@@ -173,7 +178,7 @@ export class FlightService {
       this.logger.warn('No cheapest flight found for the given criteria');
       return null;
     } else {
-        this.logger.debug(`Cheapest flight found: ${cheapestFlight.name} at price ${cheapestFlight.price}`);
+      this.logger.debug(`Cheapest flight found: ${cheapestFlight.name} at price ${cheapestFlight.price}`);
 
       return {
         name: cheapestFlight.name,

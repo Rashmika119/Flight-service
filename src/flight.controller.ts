@@ -14,7 +14,7 @@ export class FlightController {
   @Get()
   async getAllFlights(@Query() param: flightSearchDto) {
     this.logger.log(`GET /flight called with query: ${JSON.stringify(param)}`);
-    try {
+
       if (Object.keys(param).length) {
         const flights = await this.flightService.flightSearch(param);
         this.logger.debug(`Found ${flights.length} flights matching query`);
@@ -24,10 +24,7 @@ export class FlightController {
         this.logger.debug(`Returning all ${flights.length} flights`);
         return flights;
       }
-    } catch (error) {
-      this.logger.error('Error fetching flights', error.stack);
-      throw new InternalServerErrorException('Failed to fetch flights');
-    }
+
 
   }
 
