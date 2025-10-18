@@ -1,14 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, Injectable, NotFoundException } from '@nestjs/common';
+import { Flight } from './flight.entity';
 
 
-
+import { flightUpdateDto } from './flightUpdate.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Flight } from './flight.entity';
-import { flightSearchDto } from './fightSearch.dto';
-import { flightUpdateDto } from './flightUpdate.dto';
 import { cheapFlightDto } from './cheapFlight.dto';
-
+import { flightSearchDto } from './fightSearch.dto';
 
 @Injectable()
 export class FlightService {
@@ -27,8 +25,8 @@ export class FlightService {
     startDestination: string,
     endDestination: string,
     locationType: string,
-    departTime: string,
-    arriveTime: string,
+    departTime: Date,
+    arriveTime: Date,
     price: number
   ): Promise<Flight> {
     const flight = this.flightRepo.create({
@@ -44,7 +42,6 @@ export class FlightService {
     return flight;
   }
 
-
   async deleteFlight(id: string): Promise<void> {
     const result = await this.flightRepo.delete(id);
 
@@ -54,47 +51,48 @@ export class FlightService {
 
   }
 
+async flightSearch(flightSearchDto: flightSearchDto): Promise<Flight[]> {
+  const { startDestination, endDestination, locationType, departTime, price } = flightSearchDto;
 
-  async flightSearch(flightSearchDto: flightSearchDto): Promise<Flight[]> {
-    const { startDestination, endDestination, locationType, departTime, price, arriveTime } = flightSearchDto;
+  const query = this.flightRepo.createQueryBuilder('flight');
 
-    const query = this.flightRepo.createQueryBuilder('flight')
-
-    if (startDestination) {
-      query.andWhere('flight.startDestination LIKE :startDestination', {
-        startDestination: `%${startDestination}%`,
-      })
-    }
-
-    if (endDestination) {
-      query.andWhere('flight.endDestination LIKE :endDestination', {
-        endDestination: `%${endDestination}%`,
-      })
-    }
-    if (locationType) {
-      query.andWhere('flight.locationType LIKE :locationType', {
-        locationType: `%${locationType}%`,
-      })
-    }
-    if (departTime) {
-      query.andWhere("flight.departTime LIKE :departDate", {
-        departDate: `${departTime}%`
-      })
-    }
-    if (arriveTime) {
-      query.andWhere("flight.arriveTime LIKE :arriveTime", {
-        arriveTime: `${arriveTime}%`
-      })
-    }
-
-    if (price) {
-      query.andWhere('flight.price LIKE :price', {
-        price: `%${price}%`,
-      })
-    }
-    return await query.getMany();
-
+  if (startDestination) {
+    query.andWhere('flight.startDestination LIKE :startDestination', {
+      startDestination: `%${startDestination}%`,
+    });
   }
+
+  if (endDestination) {
+    query.andWhere('flight.endDestination LIKE :endDestination', {
+      endDestination: `%${endDestination}%`,
+    });
+  }
+
+  if (locationType) {
+    query.andWhere('flight.locationType LIKE :locationType', {
+      locationType: `%${locationType}%`,
+    });
+  }
+
+  // Handle departTime correctly for Date column
+  if (departTime) {
+    const startOfDay = new Date(departTime);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(departTime);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    query.andWhere('flight.departTime BETWEEN :start AND :end', {
+      start: startOfDay.toISOString(),
+      end: endOfDay.toISOString(),
+    });
+  }
+
+  if (price) {
+    query.andWhere('flight.price = :price', { price });
+  }
+
+  return await query.getMany();
+}
   async getFlightById(id: string): Promise<Flight> {
     const flight = await this.flightRepo.findOne({ where: { id } })
     if (!flight) {
@@ -105,15 +103,26 @@ export class FlightService {
 
   async updateFlight(id: string, flightUpdatedto: flightUpdateDto): Promise<Flight> {
     const flight = await this.getFlightById(id);
-    Object.assign(flight, flightUpdatedto);
+
+    if (flightUpdatedto.departTime) {
+    const departDate = new Date(flightUpdatedto.departTime);
+    if (isNaN(departDate.getTime())) throw new HttpException('Invalid departTime', 400);
+    flight.departTime = departDate;
+  }
+
+  if (flightUpdatedto.arriveTime) {
+    const arriveDate = new Date(flightUpdatedto.arriveTime);
+    if (isNaN(arriveDate.getTime())) throw new HttpException('Invalid arriveTime', 400);
+    flight.arriveTime = arriveDate;
+  }
+    const { arriveTime, departTime, ...otherFields } = flightUpdatedto;
+    Object.assign(flight, otherFields);
 
     return await this.flightRepo.save(flight);
-
   }
   async searchCheapestFlightArrival(cheapFlightDto: cheapFlightDto) {
 
-
-    const { startDestination, endDestination, arriveTime } = cheapFlightDto;
+    const { startDestination, endDestination, departTime } = cheapFlightDto;
     const query = this.flightRepo.createQueryBuilder('flight')
 
     if (startDestination) {
@@ -127,13 +136,17 @@ export class FlightService {
         endDestination: `%${endDestination}%`,
       })
     }
-    if (arriveTime) {
-      //[0]-date [1]-time
+   if (departTime) {
+    const startOfDay = new Date(departTime);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(departTime);
+    endOfDay.setHours(23, 59, 59, 999);
 
-      const date = arriveTime.split('T')[0];
-      query.andWhere('DATE(flight.arriveTime) = :date', { date });
-
-    }
+    query.andWhere('flight.arriveTime BETWEEN :start AND :end', {
+      start: startOfDay.toISOString(),
+      end: endOfDay.toISOString(),
+    });
+  }
     query.orderBy('flight.price', 'ASC');
     const cheapestFlight = await query.getOne();
 

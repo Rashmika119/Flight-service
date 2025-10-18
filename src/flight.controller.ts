@@ -1,16 +1,16 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { FlightService } from './flight.service';
-import type { flightSearchDto } from './fightSearch.dto';
-import type { cheapFlightDto } from './cheapFlight.dto';
-import type { flightUpdateDto } from './flightUpdate.dto';
 
+import type{ flightUpdateDto } from './flightUpdate.dto';
+import type{ cheapFlightDto } from './cheapFlight.dto';
+import type{ flightSearchDto } from './fightSearch.dto';
 
 
 @Controller('flight')
 export class FlightController {
   constructor(private readonly flightService: FlightService) { }
 
-  @Get('/getAllFlights')
+  @Get()
   getAllFlights(@Query() param: flightSearchDto) {
     if (Object.keys(param).length) {
       return this.flightService.flightSearch(param);
@@ -29,24 +29,10 @@ export class FlightController {
     }
 
   }
-
-  // @Get('/searchFlight')
-  // searchFlight(@Query() param: flightSearchDto) {
-  //   if (Object.keys(param).length) {
-  //     return this.flightService.flightSearch(param);
-  //   } else {
-  //     return null;
-  //   }
-  // }
-
-
-
-  @Get('/:id')
+    @Get('/:id')
   getFlightById(@Param('id') id: string) {
     return this.flightService.getFlightById(id);
   }
-
-
 
   @Post()
   createFlight(
@@ -58,7 +44,10 @@ export class FlightController {
     @Body('arriveTime') arriveTime: string,
     @Body('price') price: number,
   ) {
-    return this.flightService.createFlight(name, startDestination, endDestination, locationType, departTime, arriveTime, price)
+
+    const arrive=new Date(arriveTime);
+    const depart=new Date(departTime)
+    return this.flightService.createFlight(name, startDestination, endDestination, locationType, depart, arrive, price)
   }
 
 

@@ -18,10 +18,10 @@ export class Flight {
   locationType!: string;
 
   @Column()
-  departTime!: string;
+  departTime!: Date;
 
   @Column()
-  arriveTime!: string;
+  arriveTime!: Date;
 
   @Column()
   price!: number;
