@@ -1,4 +1,4 @@
-import { HttpException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { HttpException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { Flight } from './flight.entity';
 
 
@@ -36,75 +36,94 @@ export class FlightService {
     arriveTime: Date,
     price: number
   ): Promise<Flight> {
-    const flight = this.flightRepo.create({
-      name,
-      startDestination,
-      endDestination,
-      locationType,
-      departTime,
-      arriveTime,
-      price
-    });
-    await this.flightRepo.save(flight);
-    this.logger.debug(`Flight created: ${flight.name} (${flight.id})`);
-    return flight;
+    try {
+      const flight = this.flightRepo.create({
+        name,
+        startDestination,
+        endDestination,
+        locationType,
+        departTime,
+        arriveTime,
+        price
+      });
+      await this.flightRepo.save(flight);
+      this.logger.debug(`Flight created: ${flight.name} (${flight.id})`);
+      return flight;
+
+    } catch (error) {
+      this.logger.error("Error of creating flight ", error.stack)
+      throw new InternalServerErrorException('Failedd to create flight');
+
+    }
+
   }
 
   async deleteFlight(id: string): Promise<void> {
-    const result = await this.flightRepo.delete(id);
+    try {
+      const result = await this.flightRepo.delete(id);
+      if (result.affected === 0) {
+        this.logger.error(`Flight not found: ${id}`);
+        throw new NotFoundException(`Flight with id ${id} not found`);
+      }
+      this.logger.log(`Flight deleted: ${id}`);
 
-    if (result.affected === 0) {
-      this.logger.error(`Flight not found: ${id}`);
-      throw new NotFoundException(`Flight with id ${id} not found`);
-
+    } catch (error) {
+      this.logger.error(`Error deleting flight with id ${id}`, error.stack);
+      throw new InternalServerErrorException(`Failed to delete flight with id ${id}`);
     }
-    this.logger.log(`Flight deleted: ${id}`);
 
   }
 
   async flightSearch(flightSearchDto: flightSearchDto): Promise<Flight[]> {
     const { startDestination, endDestination, locationType, departTime, price } = flightSearchDto;
+    try {
+      const query = this.flightRepo.createQueryBuilder('flight');
+      if (startDestination) {
+        query.andWhere('flight.startDestination LIKE :startDestination', {
+          startDestination: `%${startDestination}%`,
+        });
+      }
 
-    const query = this.flightRepo.createQueryBuilder('flight');
+      if (endDestination) {
+        query.andWhere('flight.endDestination LIKE :endDestination', {
+          endDestination: `%${endDestination}%`,
+        });
+      }
 
-    if (startDestination) {
-      query.andWhere('flight.startDestination LIKE :startDestination', {
-        startDestination: `%${startDestination}%`,
-      });
+      if (locationType) {
+        query.andWhere('flight.locationType LIKE :locationType', {
+          locationType: `%${locationType}%`,
+        });
+      }
+
+      // Handle departTime correctly for Date column
+      if (departTime) {
+        const startOfDay = new Date(departTime);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(departTime);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        query.andWhere('flight.departTime BETWEEN :start AND :end', {
+          start: startOfDay.toISOString(),
+          end: endOfDay.toISOString(),
+        });
+      }
+
+      if (price) {
+        query.andWhere('flight.price = :price', { price });
+      }
+
+      const flights = await query.getMany();
+      this.logger.debug(`Flight search result count: ${flights.length}`);
+      return flights
+
+    } catch (error) {
+      this.logger.error("Error searching flights ", error.stack);
+      throw new InternalServerErrorException("Failed to search flights");
+
     }
 
-    if (endDestination) {
-      query.andWhere('flight.endDestination LIKE :endDestination', {
-        endDestination: `%${endDestination}%`,
-      });
-    }
 
-    if (locationType) {
-      query.andWhere('flight.locationType LIKE :locationType', {
-        locationType: `%${locationType}%`,
-      });
-    }
-
-    // Handle departTime correctly for Date column
-    if (departTime) {
-      const startOfDay = new Date(departTime);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(departTime);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      query.andWhere('flight.departTime BETWEEN :start AND :end', {
-        start: startOfDay.toISOString(),
-        end: endOfDay.toISOString(),
-      });
-    }
-
-    if (price) {
-      query.andWhere('flight.price = :price', { price });
-    }
-
-    const flights = await query.getMany();
-    this.logger.debug(`Flight search result count: ${flights.length}`);
-    return flights
   }
   async getFlightById(id: string): Promise<Flight> {
     const flight = await this.flightRepo.findOne({ where: { id } })
@@ -117,78 +136,86 @@ export class FlightService {
   }
 
   async updateFlight(id: string, flightUpdatedto: flightUpdateDto): Promise<Flight> {
-    const flight = await this.getFlightById(id);
-
-    if (flightUpdatedto.departTime) {
-      const departDate = new Date(flightUpdatedto.departTime);
-      if (isNaN(departDate.getTime())) {
-        this.logger.warn(`Invalid departTime for flight ${id}`);
-        throw new HttpException('Invalid departTime', 400);
+    try {
+      const flight = await this.getFlightById(id);
+      if (flightUpdatedto.departTime) {
+        const departDate = new Date(flightUpdatedto.departTime);
+        if (isNaN(departDate.getTime())) {
+          this.logger.warn(`Invalid departTime for flight ${id}`);
+          throw new HttpException('Invalid departTime', 400);
+        }
+        flight.departTime = departDate;
       }
-      flight.departTime = departDate;
-    }
 
-    if (flightUpdatedto.arriveTime) {
-      const arriveDate = new Date(flightUpdatedto.arriveTime);
-      if (isNaN(arriveDate.getTime())) {
-        this.logger.warn(`Invalid arriveTime for flight ${id}`);
-        throw new HttpException('Invalid arriveTime', 400);
+      if (flightUpdatedto.arriveTime) {
+        const arriveDate = new Date(flightUpdatedto.arriveTime);
+        if (isNaN(arriveDate.getTime())) {
+          this.logger.warn(`Invalid arriveTime for flight ${id}`);
+          throw new HttpException('Invalid arriveTime', 400);
+        }
+        flight.arriveTime = arriveDate;
       }
-      flight.arriveTime = arriveDate;
-    }
-    const { arriveTime, departTime, ...otherFields } = flightUpdatedto;
-    Object.assign(flight, otherFields);
+      const { arriveTime, departTime, ...otherFields } = flightUpdatedto;
+      Object.assign(flight, otherFields);
 
-    const updatedFlight = await this.flightRepo.save(flight);
-    this.logger.log(`Flight updated: ${id}`);
-    return updatedFlight
+      const updatedFlight = await this.flightRepo.save(flight);
+      this.logger.log(`Flight updated: ${id}`);
+      return updatedFlight
+
+    } catch (error) {
+      this.logger.error(`Error updating flight with id ${id}`, error.stack);
+      throw new InternalServerErrorException(`Failed to update flight with id ${id}`);
+    }
   }
   async searchCheapestFlightArrival(cheapFlightDto: cheapFlightDto) {
 
     const { startDestination, endDestination, departTime } = cheapFlightDto;
     this.logger.debug(`Searching cheapest flight: ${JSON.stringify(cheapFlightDto)}`);
-    const query = this.flightRepo.createQueryBuilder('flight')
-
-    if (startDestination) {
-      query.andWhere('flight.startDestination LIKE :startDestination', {
-        startDestination: `%${startDestination}%`,
-      })
-    }
-
-    if (endDestination) {
-      query.andWhere('flight.endDestination LIKE :endDestination', {
-        endDestination: `%${endDestination}%`,
-      })
-    }
-    if (departTime) {
-      const startOfDay = new Date(departTime);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(departTime);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      query.andWhere('flight.arriveTime BETWEEN :start AND :end', {
-        start: startOfDay.toISOString(),
-        end: endOfDay.toISOString(),
-      });
-    }
-    query.orderBy('flight.price', 'ASC');
-    const cheapestFlight = await query.getOne();
-
-    if (!cheapestFlight) {
-      this.logger.warn('No cheapest flight found for the given criteria');
-      return null;
-    } else {
-      this.logger.debug(`Cheapest flight found: ${cheapestFlight.name} at price ${cheapestFlight.price}`);
-
-      return {
-        name: cheapestFlight.name,
-        price: cheapestFlight.price,
-        arriveTime: cheapestFlight.arriveTime
+    try {
+      const query = this.flightRepo.createQueryBuilder('flight')
+      if (startDestination) {
+        query.andWhere('flight.startDestination LIKE :startDestination', {
+          startDestination: `%${startDestination}%`,
+        })
       }
 
+      if (endDestination) {
+        query.andWhere('flight.endDestination LIKE :endDestination', {
+          endDestination: `%${endDestination}%`,
+        })
+      }
+      if (departTime) {
+        const startOfDay = new Date(departTime);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(departTime);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        query.andWhere('flight.arriveTime BETWEEN :start AND :end', {
+          start: startOfDay.toISOString(),
+          end: endOfDay.toISOString(),
+        });
+      }
+      query.orderBy('flight.price', 'ASC');
+      const cheapestFlight = await query.getOne();
+
+      if (!cheapestFlight) {
+        this.logger.warn('No cheapest flight found for the given criteria');
+        return null;
+      } else {
+        this.logger.debug(`Cheapest flight found: ${cheapestFlight.name} at price ${cheapestFlight.price}`);
+
+        return {
+          name: cheapestFlight.name,
+          price: cheapestFlight.price,
+          arriveTime: cheapestFlight.arriveTime
+        }
+
+      }
+
+    } catch (error) {
+      this.logger.error("Error getching cheapest flight ", error.stack);
+      throw new InternalServerErrorException("Failed to fetch cheapest flight");
     }
-
-
 
   }
 }
