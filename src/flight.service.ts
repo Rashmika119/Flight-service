@@ -23,7 +23,7 @@ export class FlightService {
       return await this.flightRepo.find();
     } catch (error) {
       this.logger.error('Error fetching flights', error.stack);
-      throw new HttpException('Failed to fetch flights', 500);
+      throw new InternalServerErrorException('Failed to fetch flights');
     }
   }
 
@@ -126,6 +126,7 @@ export class FlightService {
 
   }
   async getFlightById(id: string): Promise<Flight> {
+    try{
     const flight = await this.flightRepo.findOne({ where: { id } })
     if (!flight) {
       this.logger.error(`Flight not found: ${id}`);
@@ -133,6 +134,10 @@ export class FlightService {
     }
     this.logger.debug(`Flight fetched: ${id}`);
     return flight;
+  }catch(error){
+    this.logger.error("error of ftching data of flight wit id :",id);
+    throw new InternalServerErrorException("failed to get data by id")
+  }
   }
 
   async updateFlight(id: string, flightUpdatedto: flightUpdateDto): Promise<Flight> {
