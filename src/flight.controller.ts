@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, InternalServerErrorException, Logger, Param, Post, Put, Query } from '@nestjs/common';
 import { FlightService } from './flight.service';
 
-import type { flightUpdateDto } from './flightUpdate.dto';
-import type { cheapFlightDto } from './cheapFlight.dto';
-import type { flightSearchDto } from './fightSearch.dto';
+import type { flightUpdateDto } from './DTO/flightUpdate.dto';
+import type { cheapFlightDto } from './DTO/cheapFlight.dto';
+import type { flightSearchDto } from './DTO/fightSearch.dto';
 
 
 @Controller('flight')

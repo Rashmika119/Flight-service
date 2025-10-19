@@ -1,12 +1,12 @@
 import { HttpException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
-import { Flight } from './flight.entity';
+import { Flight } from './Entity/flight.entity';
 
 
-import { flightUpdateDto } from './flightUpdate.dto';
+import { flightUpdateDto } from './DTO/flightUpdate.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { cheapFlightDto } from './cheapFlight.dto';
-import { flightSearchDto } from './fightSearch.dto';
+import { cheapFlightDto } from './DTO/cheapFlight.dto';
+import { flightSearchDto } from './DTO/fightSearch.dto';
 
 @Injectable()
 export class FlightService {
