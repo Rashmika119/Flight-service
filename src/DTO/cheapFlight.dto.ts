@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from "class-validator"
+import { IsDateString, IsOptional, IsString } from "class-validator"
 
 export class cheapFlightDto{
     @IsString()
@@ -6,10 +6,10 @@ export class cheapFlightDto{
     startDestination?:string
 
     @IsOptional()
-    @IsString()
+    @IsDateString()
     endDestination?:string
 
     @IsOptional()
-    @IsString()
+    @IsDateString()
     departTime?:string
 }
