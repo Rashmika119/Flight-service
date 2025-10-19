@@ -4,6 +4,7 @@ import { FlightService } from './flight.service';
 import type { flightUpdateDto } from './DTO/flightUpdate.dto';
 import type { cheapFlightDto } from './DTO/cheapFlight.dto';
 import type { flightSearchDto } from './DTO/fightSearch.dto';
+import { createFlightDto } from './DTO/createFlight.dto';
 
 
 @Controller('flight')
@@ -50,15 +51,8 @@ export class FlightController {
   }
 
   @Post()
-  async createFlight(
-    @Body('name') name: string,
-    @Body('startDestination') startDestination: string,
-    @Body('endDestination') endDestination: string,
-    @Body('locationType') locationType: string,
-    @Body('departTime') departTime: string,
-    @Body('arriveTime') arriveTime: string,
-    @Body('price') price: number,
-  ) {
+  async createFlight(@Body() dto: createFlightDto) {
+    const { name, startDestination, endDestination, locationType, departTime, arriveTime, price } = dto;
     this.logger.log(`POST /flight called to create flight ${name} from ${startDestination} -> ${endDestination}`);
 
     const depart = new Date(departTime);
@@ -93,7 +87,7 @@ export class FlightController {
 
   @Delete('/:id')
   async deleteFlight(
-    @Param() id: string
+    @Param('id') id: string
   ) {
     this.logger.log(`DELETE /flight/${id} called`);
     await this.flightService.deleteFlight(id);
