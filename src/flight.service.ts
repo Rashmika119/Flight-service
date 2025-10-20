@@ -86,8 +86,10 @@ export class FlightService {
     if (departTime) {
       const startOfDay = new Date(departTime);
       startOfDay.setHours(0, 0, 0, 0);
+ 
       const endOfDay = new Date(departTime);
       endOfDay.setHours(23, 59, 59, 999);
+
 
       query.andWhere('flight.departTime BETWEEN :start AND :end', {
         start: startOfDay.toISOString(),
@@ -164,7 +166,7 @@ export class FlightService {
       const endOfDay = new Date(departTime);
       endOfDay.setHours(23, 59, 59, 999);
 
-      query.andWhere('flight.arriveTime BETWEEN :start AND :end', {
+      query.andWhere('flight.departTime BETWEEN :start AND :end', {
         start: startOfDay.toISOString(),
         end: endOfDay.toISOString(),
       });
