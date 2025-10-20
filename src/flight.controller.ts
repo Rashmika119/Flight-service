@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, InternalServerErrorException, Logger, Param, Post, Put, Query } from '@nestjs/common';
 import { FlightService } from './flight.service';
 
-import type { flightUpdateDto } from './DTO/flightUpdate.dto';
-import type { cheapFlightDto } from './DTO/cheapFlight.dto';
-import type { flightSearchDto } from './DTO/fightSearch.dto';
+import { flightUpdateDto } from './DTO/flightUpdate.dto';
+import { cheapFlightDto } from './DTO/cheapFlight.dto';
+import { flightSearchDto } from './DTO/fightSearch.dto';
 import { createFlightDto } from './DTO/createFlight.dto';
 
 
@@ -31,20 +31,7 @@ export class FlightController {
     }
   }
 
-  @Get('/getCheapFlight')
-  async getCheapFlightTime(@Query() param: cheapFlightDto) {
-    this.logger.log(`GET /flight/getCheapFlight called with query: ${JSON.stringify(param)}`);
-    try {
-      if (Object.keys(param).length) {
-        return this.flightService.searchCheapestFlightArrival(param);
-      } else {
-        return null;
-      }
-    } catch (error) {
-      this.logger.error('Error fetching cheapest flight', error.stack);
-      throw new InternalServerErrorException('Failed to fetch cheapest flight');
-    }
-  }
+
 
   @Get('/:id')
   async getFlightById(@Param('id') id: string) {

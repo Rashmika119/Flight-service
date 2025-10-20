@@ -144,48 +144,4 @@ export class FlightService {
     return updatedFlight
   }
 
-  async searchCheapestFlightArrival(cheapFlightDto: cheapFlightDto) {
-
-    const { startDestination, endDestination, departTime } = cheapFlightDto;
-    this.logger.debug(`Searching cheapest flight: ${JSON.stringify(cheapFlightDto)}`);
-    const query = this.flightRepo.createQueryBuilder('flight')
-    if (startDestination) {
-      query.andWhere('flight.startDestination LIKE :startDestination', {
-        startDestination: `%${startDestination}%`,
-      })
-    }
-
-    if (endDestination) {
-      query.andWhere('flight.endDestination LIKE :endDestination', {
-        endDestination: `%${endDestination}%`,
-      })
-    }
-    if (departTime) {
-      const startOfDay = new Date(departTime);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(departTime);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      query.andWhere('flight.departTime BETWEEN :start AND :end', {
-        start: startOfDay.toISOString(),
-        end: endOfDay.toISOString(),
-      });
-    }
-    query.orderBy('flight.price', 'ASC');
-    const cheapestFlight = await query.getOne();
-
-    if (!cheapestFlight) {
-      this.logger.warn('No cheapest flight found for the given criteria');
-      return null;
-    } else {
-      this.logger.debug(`Cheapest flight found: ${cheapestFlight.name} at price ${cheapestFlight.price}`);
-
-      return {
-        name: cheapestFlight.name,
-        price: cheapestFlight.price,
-        arriveTime: cheapestFlight.arriveTime
-      }
-
-    }
-  }
 }
