@@ -84,6 +84,7 @@ export class FlightService {
 
     // Handle departTime correctly for Date column
     if (departTime) {
+      console.log(departTime);
       const startOfDay = new Date(departTime);
       startOfDay.setHours(0, 0, 0, 0);
  
